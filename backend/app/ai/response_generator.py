@@ -114,7 +114,21 @@ def synthesize_local_response(question: str, context_chunks: List[Dict], history
     Analyzes user intent and synthesizes response following the 4 requested output types:
     Type 1: Educational, Type 2: Recommendation, Type 3: Comparison, Type 4: Problem-Solving.
     """
-    q_lower = question.lower()
+    q_lower = question.lower().strip().replace("?", "").replace("!", "")
+    
+    # Detect simple greetings to provide a helpful welcome introduction
+    greetings = {"hello", "hi", "hey", "greetings", "good morning", "good afternoon", "yo", "start", "hi there", "hello there"}
+    if q_lower in greetings or q_lower.startswith("hello") or q_lower.startswith("hi "):
+        return (
+            "Hello! I am **GreenTech Advisor AI**, your specialized assistant for environmentally "
+            "responsible electronic purchases and sustainable technology.\n\n"
+            "How can I assist you today? You can ask me about:\n"
+            "- **Sustainable Devices**: Recommendations for purchasing green laptops and smartphones.\n"
+            "- **E-Waste Management**: Locations and drop-off channels for recycling old devices in Sri Lanka.\n"
+            "- **Eco-Certifications**: Understanding standards like EPEAT and Energy Star.\n"
+            "- **Cost Barriers**: Addressing price premiums and evaluating cost-effective options (like refurbished business-class gear)."
+        )
+        
     best_chunk_text = context_chunks[0]["text"] if context_chunks else ""
     
     # Type 3: Comparison
