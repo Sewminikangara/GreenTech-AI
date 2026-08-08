@@ -145,7 +145,7 @@ export default function GreenTechChat() {
       if (res.ok) {
         const data = await res.json();
         const mappedMessages = data.map((m: any) => {
-          // Attempt to extract citations if the assistant message contains source annotations
+          // Extract citations from message content if present
           let sourcesList: SourceCitation[] = [];
           if (m.sender_type === "assistant" && m.message_content.includes("*[Source:")) {
             const parts = m.message_content.split("*[Source:");
@@ -376,7 +376,7 @@ export default function GreenTechChat() {
   };
 
   const handleRateMessage = (messageId: string, rating: "like" | "dislike") => {
-    // Basic local state update for ratings
+    // Update rating state
     setMessages((prev) =>
       prev.map((m) =>
         m.id === messageId ? { ...m, feedback: { rating } } : m
@@ -388,7 +388,7 @@ export default function GreenTechChat() {
     const text = msg.text;
     if (!text) return null;
 
-    // Filter out citation lines from showing in the main text bubble since they are rendered in the Cited section
+    // Exclude source footer
     const displayParts = text.split("*[Source:");
     const mainText = displayParts[0].trim();
 
@@ -423,9 +423,9 @@ export default function GreenTechChat() {
         );
       }
 
-      // Render markdown table if lines contain pipes
+      // Parse markdown tables
       if (line.startsWith("|") && line.endsWith("|")) {
-        // Skip separator lines
+        // Skip separators
         if (line.includes("---")) return null;
         const columns = line.split("|").map(col => col.trim()).filter(col => col !== "");
         return (

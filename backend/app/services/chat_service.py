@@ -11,16 +11,8 @@ def process_chat_message(
     conversation_id: Optional[str],
     user_id: str
 ) -> dict:
-    """
-    Coordinates the complete RAG assistant chat flow:
-    1. Asserts/creates conversation session for target user.
-    2. Fetches message logs from DB to assemble conversation memory.
-    3. Retrieves top K matching document passages using vector search.
-    4. Issues LLM prompt (or Synthesized Local Response) incorporating system guides, memory, and RAG context.
-    5. Saves prompt/reply to PostgreSQL database.
-    6. Returns answer, unique cited sources list, and conversation UUID.
-    """
-    # 1. Assert or create conversation session
+    """Processes chat message, performs RAG retrieval, and generates a response."""
+    # Session handling
     if not conversation_id:
         new_conv = Conversation(user_id=user_id)
         db.add(new_conv)
@@ -35,7 +27,7 @@ def process_chat_message(
         if not conv:
             raise ValueError("Conversation session not found or access denied.")
             
-    # 2. Fetch conversation history for memory compilation
+    # Load history
     history_records = (
         db.query(Message)
         .filter(Message.conversation_id == conversation_id)
@@ -50,10 +42,10 @@ def process_chat_message(
             "text": rec.message_content
         })
         
-    # 3. Retrieve relevant chunks (RAG)
+    # Document retrieval
     retrieved_chunks = AIService.retrieve_chunks(message, top_k=3)
     
-    # 4. Extract unique source names
+    # Extract citations
     sources = []
     seen_sources = set()
     for chunk in retrieved_chunks:
@@ -64,10 +56,10 @@ def process_chat_message(
             seen_sources.add(citation)
             sources.append(citation)
             
-    # 5. Generate response using language model or synthesis fallback
+    # Generate response
     ai_reply = generate_ai_response(message, retrieved_chunks, history)
     
-    # 6. Save messages to PostgreSQL
+    # Store messages
     user_msg = Message(
         conversation_id=conversation_id,
         sender_type="user",

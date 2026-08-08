@@ -4,7 +4,6 @@ import httpx
 from typing import List, Dict, Optional
 from app.config.settings import settings
 
-# System instruction guiding the AI behavior to support research variables
 SYSTEM_INSTRUCTION = (
     "You are GreenTech Advisor AI.\n"
     "Your purpose is to help users make environmentally responsible electronic purchasing decisions.\n"
@@ -20,26 +19,22 @@ SYSTEM_INSTRUCTION = (
 )
 
 def generate_ai_response(question: str, context_chunks: List[Dict], history: List[Dict]) -> str:
-    """
-    Combines System Instructions, RAG context, and message history to generate 
-    the AI response, using OpenAI or Google Gemini APIs if keys are present,
-    or a deterministic local synthesizer if neither is configured.
-    """
+    """Generates responses using OpenAI or Gemini, with fallback to local synthesis."""
     openai_key = settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
     gemini_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
     
-    # 1. Format the retrieved context passages
+    # Format context
     context_str = ""
     for idx, chunk in enumerate(context_chunks):
         context_str += f"Reference [{idx + 1}]:\nDocument: {chunk['title']}\nSource: {chunk['source']}\nContent: {chunk['text']}\n\n"
         
-    # 2. Format history logs
+    # Format history
     history_str = ""
     for msg in history:
         sender = "User" if msg["sender"] == "user" else "Assistant"
         history_str += f"{sender}: {msg['text']}\n"
         
-    # 3. Formulate prompt (for Gemini or log context)
+    # Construct prompt
     prompt = (
         f"You have the following retrieved knowledge context from the database:\n"
         f"======================\n{context_str}======================\n\n"
@@ -48,7 +43,7 @@ def generate_ai_response(question: str, context_chunks: List[Dict], history: Lis
         f"Please answer the User Question using the context provided where possible. Follow the system instruction rules."
     )
     
-    # Option A: Call OpenAI API
+    # OpenAI call
     if openai_key:
         url = "https://api.openai.com/v1/chat/completions"
         headers = {
@@ -56,7 +51,6 @@ def generate_ai_response(question: str, context_chunks: List[Dict], history: Lis
             "Authorization": f"Bearer {openai_key}"
         }
         
-        # Structure messages array with roles
         messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
         for msg in history:
             role = "user" if msg["sender"] == "user" else "assistant"
@@ -84,7 +78,7 @@ def generate_ai_response(question: str, context_chunks: List[Dict], history: Lis
         except Exception as e:
             print(f"Failed to connect to OpenAI API: {e}")
             
-    # Option B: Call Google Gemini API
+    # Gemini call
     elif gemini_key:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
         headers = {"Content-Type": "application/json"}
@@ -105,41 +99,37 @@ def generate_ai_response(question: str, context_chunks: List[Dict], history: Lis
         except Exception as e:
             print(f"Failed to connect to Gemini API: {e}")
             
-    # Option C: Fallback Local Response Synthesis (matches structural response types requested)
+    # Local fallback
     return synthesize_local_response(question, context_chunks, history)
 
 
 def synthesize_local_response(question: str, context_chunks: List[Dict], history: List[Dict]) -> str:
-    """
-    Synthesizes a clean, context-driven response based on retrieved RAG passages
-    and query intent, keeping the conversation natural and real-world.
-    """
+    """Synthesizes response based on retrieved text passages."""
     q_lower = question.lower().strip().replace("?", "").replace("!", "")
     
-    # 1. Simple, clean greeting handler (no long bulletins)
+    # Check greetings
     greetings = {"hello", "hi", "hey", "greetings", "good morning", "good afternoon", "yo", "start", "hi there", "hello there"}
     if q_lower in greetings or q_lower == "hi" or q_lower == "hello":
         return "Hello! I am GreenTech Advisor AI, your assistant for sustainable technology and eco-friendly electronic purchases. How can I help you today?"
         
-    # 2. Context-driven extraction
+    # RAG context matching
     if context_chunks:
-        # Get the highest-ranked matching paragraph from our RAG vector search
         best_chunk = context_chunks[0]
         text = best_chunk.get("text", "").strip()
         
-        # Clean up any broken border prefixes (like "n. " or "er. ") from chunking lines
+        # Clean border characters
         if text.startswith("n. "):
             text = text[3:]
         elif text.startswith("er. "):
             text = text[4:]
             
-        # Capitalize the first letter if it was cut off during layout split
+        # Capitalize first letter
         if text and text[0].islower():
             text = text[0].upper() + text[1:]
             
         return text
 
-    # 3. Fallback when no document matches
+    # Default fallback
     return (
         "I couldn't find specific literature on that topic in our database. "
         "Generally, you should look for Energy Star or EPEAT certified devices, prioritize repairable "
