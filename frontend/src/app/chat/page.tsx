@@ -60,7 +60,7 @@ export default function GreenTechChat() {
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  
+
   const [editingSessionId, setEditingSessionId] = useState<string>("");
   const [editTitleText, setEditTitleText] = useState<string>("");
 
@@ -300,7 +300,7 @@ export default function GreenTechChat() {
       text: messageContent,
       timestamp: new Date().toISOString(),
     };
-    
+
     const tempBotMsg: Message = {
       id: "temp_bot_msg",
       sessionId: currentSessionId,
@@ -331,7 +331,7 @@ export default function GreenTechChat() {
       }
 
       const data = await response.json();
-      
+
       const formattedSources = data.sources.map((s: string, index: number) => ({
         id: index + 1,
         documentName: s,
@@ -342,13 +342,13 @@ export default function GreenTechChat() {
         prev.map((msg) =>
           msg.id === "temp_bot_msg"
             ? {
-                id: `bot_${Date.now()}`,
-                sessionId: currentSessionId,
-                sender: "assistant",
-                text: data.response,
-                timestamp: new Date().toISOString(),
-                sources: formattedSources,
-              }
+              id: `bot_${Date.now()}`,
+              sessionId: currentSessionId,
+              sender: "assistant",
+              text: data.response,
+              timestamp: new Date().toISOString(),
+              sources: formattedSources,
+            }
             : msg
         )
       );
@@ -403,7 +403,7 @@ export default function GreenTechChat() {
       if (line.startsWith("# ")) {
         return <h1 key={lineIdx} className="text-xl font-bold mt-4 mb-2">{line.substring(2)}</h1>;
       }
-      
+
       if (line.trim().startsWith("* ") || line.trim().startsWith("- ")) {
         const content = line.trim().substring(2);
         return (
@@ -552,16 +552,7 @@ export default function GreenTechChat() {
           )}
         </div>
 
-        <div className="sidebar-footer">
-          <div className="user-profile">
-            <div className="user-avatar">
-              <Cpu size={16} />
-            </div>
-            <div className="user-info">
-              <span className="user-name">IT Student</span>
-              <span className="user-role">Sri Lanka State Uni</span>
-            </div>
-          </div>
+        <div className="sidebar-footer" style={{ justifyContent: "flex-end" }}>
           <button className="icon-btn" onClick={toggleTheme}>
             {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
           </button>
@@ -614,7 +605,7 @@ export default function GreenTechChat() {
                 fontWeight: 600,
               }}
             >
-              <Leaf size={12} fill="currentColor" /> RAG Connected
+              <span style={{ width: "6px", height: "6px", backgroundColor: "#10B981", borderRadius: "50%", display: "inline-block" }} />
             </div>
           </div>
         </header>
@@ -628,16 +619,11 @@ export default function GreenTechChat() {
               </div>
               <h1 className="welcome-title">GreenTech Advisor AI</h1>
               <p className="welcome-description">
-                Ask me questions about sustainable laptops, eco-friendly smartphones, E-waste disposal policies, 
+                Ask me questions about sustainable laptops, eco-friendly smartphones, E-waste disposal policies,
                 repairability scores, conflict-free mineral sourcing, and green purchase decisions.
               </p>
 
-              <div className="research-banner">
-                <strong>Academic Study Focus:</strong>
-                <br />
-                This assistant is configured as part of a research study investigating green purchase intentions among 
-                IT undergraduates. It is structured strictly as a knowledge retrieval advisor and does NOT collect surveys.
-              </div>
+
 
               <div className="starters-grid">
                 <div
@@ -729,7 +715,7 @@ export default function GreenTechChat() {
                           <Copy size={14} />
                         )}
                       </button>
-                      
+
                       <button
                         className={`message-action-icon-btn ${msg.feedback?.rating === "like" ? "liked" : ""}`}
                         title="Thumb Up (Helpful)"
