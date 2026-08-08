@@ -111,91 +111,38 @@ def generate_ai_response(question: str, context_chunks: List[Dict], history: Lis
 
 def synthesize_local_response(question: str, context_chunks: List[Dict], history: List[Dict]) -> str:
     """
-    Analyzes user intent and synthesizes response following the 4 requested output types:
-    Type 1: Educational, Type 2: Recommendation, Type 3: Comparison, Type 4: Problem-Solving.
+    Synthesizes a clean, context-driven response based on retrieved RAG passages
+    and query intent, keeping the conversation natural and real-world.
     """
     q_lower = question.lower().strip().replace("?", "").replace("!", "")
     
-    # Detect simple greetings to provide a helpful welcome introduction
+    # 1. Simple, clean greeting handler (no long bulletins)
     greetings = {"hello", "hi", "hey", "greetings", "good morning", "good afternoon", "yo", "start", "hi there", "hello there"}
-    if q_lower in greetings or q_lower.startswith("hello") or q_lower.startswith("hi "):
-        return (
-            "Hello! I am **GreenTech Advisor AI**, your specialized assistant for environmentally "
-            "responsible electronic purchases and sustainable technology.\n\n"
-            "How can I assist you today? You can ask me about:\n"
-            "- **Sustainable Devices**: Recommendations for purchasing green laptops and smartphones.\n"
-            "- **E-Waste Management**: Locations and drop-off channels for recycling old devices in Sri Lanka.\n"
-            "- **Eco-Certifications**: Understanding standards like EPEAT and Energy Star.\n"
-            "- **Cost Barriers**: Addressing price premiums and evaluating cost-effective options (like refurbished business-class gear)."
-        )
+    if q_lower in greetings or q_lower == "hi" or q_lower == "hello":
+        return "Hello! I am GreenTech Advisor AI, your assistant for sustainable technology and eco-friendly electronic purchases. How can I help you today?"
         
-    best_chunk_text = context_chunks[0]["text"] if context_chunks else ""
-    
-    # Type 3: Comparison
-    if "vs" in q_lower or "compare" in q_lower or "comparison" in q_lower or "normal laptop" in q_lower:
-        return (
-            "### Comparison: Standard Laptop vs. Green Laptop\n\n"
-            "Here is a comparative breakdown of key lifecycle factors:\n\n"
-            "| Feature | Standard Consumer Laptop | Green/Sustainable Laptop (e.g. EPEAT Gold) |\n"
-            "| :--- | :--- | :--- |\n"
-            "| **Housing Materials** | Virgin plastics, toxic glues | Recycled aluminum, post-consumer ocean plastics |\n"
-            "| **Repairability** | Soldered RAM/SSD, glued batteries | Modular components, easy screw access, spare parts available |\n"
-            "| **Energy Draw** | Standard consumption | Energy Star certified (low active & standby draw) |\n"
-            "| **Disposal E-Waste** | Difficult to split, toxic compounds | Designed for recycling, lead-free solder alloys |\n"
-            "| **Lifespan** | 2-3 years average utility | 5-7 years due to component upgrades |\n\n"
-            "While standard laptops may have lower initial costs, green laptops reduce life-cycle environmental concern and lower power expenses."
-        )
+    # 2. Context-driven extraction
+    if context_chunks:
+        # Get the highest-ranked matching paragraph from our RAG vector search
+        best_chunk = context_chunks[0]
+        text = best_chunk.get("text", "").strip()
         
-    # Type 4: Problem-Solving (Price/Barriers)
-    elif "cost" in q_lower or "expensive" in q_lower or "price" in q_lower or "premium" in q_lower:
-        return (
-            "### Problem-Solving: Addressing the Cost Barriers of Green Electronics\n\n"
-            "It is true that sustainable tech can carry a 'green premium' of 10% to 20% higher upfront costs. "
-            "However, this barrier can be mitigated using the following alternatives:\n\n"
-            "1. **Evaluate Refurbished Enterprise Gear**: Purchasing a refurbished business laptop (e.g., ThinkPad or Latitude) "
-            "reclaims corporate hardware at 50% discount. It avoids embodied carbon emissions of new manufacturing.\n"
-            "2. **Calculate Long-Term Energy Savings**: An Energy Star laptop reduces active wattage, lowering electricity "
-            "bills in the Sri Lankan grid context over time.\n"
-            "3. **Prioritize Modularity**: Upgrading RAM or batteries for Rs. 15,000 saves you from buying a new laptop "
-            "for Rs. 150,000, extending device utility to 6+ years.\n\n"
-            "Practical advice: Focus on purchasing upgradeable devices to spread costs and reduce landfill electronic waste."
-        )
-        
-    # Type 2: Recommendation (e.g. software engineering / programming)
-    elif "programming" in q_lower or "software" in q_lower or "recommend" in q_lower or "buy" in q_lower or "student" in q_lower:
-        # Check if conversation history indicates user wants programming recommendations
-        is_programming = (
-            "programming" in q_lower or 
-            "software" in q_lower or 
-            any("programming" in h.get("text", "").lower() or "software" in h.get("text", "").lower() for h in history)
-        )
-        
-        if is_programming:
-            return (
-                "### Recommendation Guide: Laptop for Software Engineering\n\n"
-                "For programming and compiled languages, sustainable recommendations are based on performance, durability, and repair:\n\n"
-                "- **System Requirements**: Prioritize at least 16GB RAM and a 512GB SSD. Look for modular SO-DIMM slots to allow future memory upgrades.\n"
-                "- **Sustainability Considerations**: Select aluminum housings to withstand campus transport, and verify EPEAT Gold and RoHS ratings to avoid hazardous compounds.\n"
-                "- **Buying Tip**: Consider refurbished enterprise business-class systems. They provide excellent compilation speeds, durable keyboards, and are easily repairable by local shops in Sri Lanka."
-            )
-        else:
-            return (
-                "### Buying Guide: Sustainable Electronics\n\n"
-                "Before buying a device, consider the following parameters:\n"
-                "1. **Check Eco-Certifications**: Look for EPEAT Gold, Energy Star, or TCO Certified labels.\n"
-                "2. **Assess Repairability**: Check if the battery can be replaced easily without special heat guns.\n"
-                "3. **Refurbished over New**: Evaluate pre-owned enterprise gear to save capital and carbon footprint."
-            )
+        # Clean up any broken border prefixes (like "n. " or "er. ") from chunking lines
+        if text.startswith("n. "):
+            text = text[3:]
+        elif text.startswith("er. "):
+            text = text[4:]
             
-    # Type 1: Educational (Default RAG retrieval output)
-    else:
-        if best_chunk_text:
-            return best_chunk_text
+        # Capitalize the first letter if it was cut off during layout split
+        if text and text[0].islower():
+            text = text[0].upper() + text[1:]
             
-        return (
-            "### Green Electronics Explained\n\n"
-            "Green electronics are devices designed to minimize their ecological footprint throughout their life cycle. "
-            "This covers eco-responsible manufacturing, low-power operation, repairable parts, and safe recycling paths.\n\n"
-            "IT undergraduates can promote these practices by expanding environmental knowledge and choosing upgradeable "
-            "electronics to lower e-waste landfill contamination."
-        )
+        return text
+
+    # 3. Fallback when no document matches
+    return (
+        "I couldn't find specific literature on that topic in our database. "
+        "Generally, you should look for Energy Star or EPEAT certified devices, prioritize repairable "
+        "configurations, and recycle older hardware at licensed electronic waste collectors. "
+        "Could you please specify what device or factor you are asking about?"
+    )
