@@ -2,6 +2,7 @@ import os
 import json
 import httpx
 from typing import List, Dict, Optional
+from app.config.settings import settings
 
 # System instruction guiding the AI behavior to support research variables
 SYSTEM_INSTRUCTION = (
@@ -21,10 +22,11 @@ SYSTEM_INSTRUCTION = (
 def generate_ai_response(question: str, context_chunks: List[Dict], history: List[Dict]) -> str:
     """
     Combines System Instructions, RAG context, and message history to generate 
-    the AI response, using Google Gemini API if a key is present, or a 
-    deterministic local synthesizer if the API key is not configured.
+    the AI response, using OpenAI or Google Gemini APIs if keys are present,
+    or a deterministic local synthesizer if neither is configured.
     """
-    api_key = os.getenv("GEMINI_API_KEY")
+    openai_key = settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
+    gemini_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
     
     # 1. Format the retrieved context passages
     context_str = ""
@@ -37,7 +39,7 @@ def generate_ai_response(question: str, context_chunks: List[Dict], history: Lis
         sender = "User" if msg["sender"] == "user" else "Assistant"
         history_str += f"{sender}: {msg['text']}\n"
         
-    # 3. Formulate prompt
+    # 3. Formulate prompt (for Gemini or log context)
     prompt = (
         f"You have the following retrieved knowledge context from the database:\n"
         f"======================\n{context_str}======================\n\n"
@@ -46,9 +48,45 @@ def generate_ai_response(question: str, context_chunks: List[Dict], history: Lis
         f"Please answer the User Question using the context provided where possible. Follow the system instruction rules."
     )
     
-    if api_key:
-        # Call Google Gemini API
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    # Option A: Call OpenAI API
+    if openai_key:
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {openai_key}"
+        }
+        
+        # Structure messages array with roles
+        messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
+        for msg in history:
+            role = "user" if msg["sender"] == "user" else "assistant"
+            messages.append({"role": role, "content": msg["text"]})
+            
+        messages.append({
+            "role": "user",
+            "content": f"Retrieved Context:\n{context_str}\n\nUser Question: {question}"
+        })
+        
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": messages,
+            "temperature": 0.3
+        }
+        
+        try:
+            response = httpx.post(url, json=payload, headers=headers, timeout=25.0)
+            if response.status_code == 200:
+                data = response.json()
+                text = data["choices"][0]["message"]["content"]
+                return text
+            else:
+                print(f"OpenAI API error {response.status_code}: {response.text}")
+        except Exception as e:
+            print(f"Failed to connect to OpenAI API: {e}")
+            
+    # Option B: Call Google Gemini API
+    elif gemini_key:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
         headers = {"Content-Type": "application/json"}
         
         payload = {
@@ -67,7 +105,7 @@ def generate_ai_response(question: str, context_chunks: List[Dict], history: Lis
         except Exception as e:
             print(f"Failed to connect to Gemini API: {e}")
             
-    # 4. Fallback Local Response Synthesis (matches structural response types requested)
+    # Option C: Fallback Local Response Synthesis (matches structural response types requested)
     return synthesize_local_response(question, context_chunks, history)
 
 
